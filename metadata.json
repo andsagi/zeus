@@ -1,0 +1,9 @@
+{
+  "name": "Zeus App",
+  "description": "Unified productivity assistant combining the knowledge base of Obsidian with the structure of Notion, powered by specialized Gemini AI.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

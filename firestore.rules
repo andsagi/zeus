@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Profile Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email'])
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 256
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('specialization' in data) || (data.specialization is string && data.specialization.size() <= 200))
+        && (!('theme' in data) || data.theme in ['light', 'dark'])
+        && (!('language' in data) || data.language in ['pt', 'en']);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming())
+        && incoming().trialStartDate == request.time
+        && incoming().subscriptionStatus == 'trial';
+      allow update: if isOwner(userId) && isValidUser(incoming())
+        && incoming().trialStartDate == existing().trialStartDate
+        && (
+          // Action: Update Preferences
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'specialization', 'theme', 'language', 'photoURL', 'addresses'])
+        );
+    }
+
+    // --- Page Validation ---
+    function isValidPage(data) {
+      return data.keys().hasAll(['id', 'title', 'ownerId'])
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 500
+        && data.ownerId == request.auth.uid
+        && (!('content' in data) || (data.content is string && data.content.size() <= 50000))
+        && (!('type' in data) || data.type in ['note', 'table', 'dashboard']);
+    }
+
+    match /pages/{pageId} {
+      allow get: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidPage(incoming()) && isValidId(pageId)
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidPage(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action: Edit Content
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'updatedAt', 'isFavorite', 'type'])
+        );
+      allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
+    }
+
+    // --- AI Conversations & Memory ---
+    match /users/{userId}/conversations/{convId} {
+      allow read, write: if isOwner(userId) && isValidId(convId);
+    }
+    match /users/{userId}/messages/{msgId} {
+      allow read, write: if isOwner(userId) && isValidId(msgId);
+    }
+  }
+}
