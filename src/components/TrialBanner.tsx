@@ -5,7 +5,7 @@ import { differenceInDays, addDays, formatDistanceToNow } from 'date-fns';
 import { ptBR, enUS } from 'date-fns/locale';
 import { useUser } from '../lib/UserContext';
 
-export const TrialBanner = () => {
+export const TrialBanner = ({ onNavigate }: { onNavigate?: (view: string) => void }) => {
   const { userData } = useUser();
   const [isVisible, setIsVisible] = useState(true);
   const [lastClosed, setLastClosed] = useState<number | null>(null);
@@ -25,8 +25,19 @@ export const TrialBanner = () => {
 
   if (!userData || userData.subscriptionStatus !== 'trial') return null;
 
-  const trialEnd = addDays(new Date(userData.trialStartDate), 60);
-  const daysLeft = differenceInDays(trialEnd, new Date());
+  const getTrialStartDate = () => {
+    if (!userData.trialStartDate) return new Date();
+    // Handle Firestore Timestamp
+    if (userData.trialStartDate.toDate) {
+      return userData.trialStartDate.toDate();
+    }
+    // Handle ISO string or other date formats
+    return new Date(userData.trialStartDate);
+  };
+
+  const trialStartDate = getTrialStartDate();
+  const trialEnd = addDays(trialStartDate, 60);
+  const daysLeft = Math.max(0, differenceInDays(trialEnd, new Date()));
   const locale = userData.language === 'pt' ? ptBR : enUS;
 
   const close = () => {
@@ -34,34 +45,60 @@ export const TrialBanner = () => {
     setLastClosed(Date.now());
   };
 
+  const handleUpgrade = () => {
+    if (onNavigate) {
+      onNavigate('settings');
+      close();
+    }
+  };
+
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.div
-          initial={{ y: -100 }}
-          animate={{ y: 0 }}
-          exit={{ y: -100 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-brand-orange text-black py-2 px-6 flex items-center justify-between shadow-lg font-bold text-xs"
-        >
-          <div className="flex items-center gap-2">
-            <Timer className="w-4 h-4" />
-            <span className="uppercase tracking-tight">
-              {userData.language === 'pt' 
-                ? `VOCÊ TEM ${daysLeft} DIAS RESTANTES DE GRATUIDADE VIP`
-                : `YOU HAVE ${daysLeft} DAYS OF VIP TRIAL REMAINING`}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <button className="bg-black text-white px-4 py-1 rounded-md text-[10px] font-bold hover:bg-white hover:text-black transition-all flex items-center gap-2">
-              <CreditCard className="w-3 h-3" />
-              {userData.language === 'pt' ? 'ASSINAR AGORA' : 'UPGRADE NOW'}
-            </button>
-            <button onClick={close} className="opacity-60 hover:opacity-100 transition-opacity">
-              {userData.language === 'pt' ? 'FECHAR AVISO [X]' : 'CLOSE NOTICE [X]'}
-            </button>
-          </div>
-        </motion.div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+            className="pointer-events-auto bg-black/90 backdrop-blur-3xl border border-blue-500/30 rounded-[2.5rem] p-8 max-w-md w-full shadow-[0_0_80px_rgba(59,130,246,0.2)] flex flex-col items-center text-center space-y-6"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
+              <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center relative shadow-lg">
+                <Timer className="w-8 h-8 text-white animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-blue-400 text-xs font-black uppercase tracking-[0.3em]">
+                {userData.language === 'pt' ? 'Acesso VIP Zeus' : 'Zeus VIP Access'}
+              </h3>
+              <p className="text-white text-lg font-black italic tracking-tight">
+                {userData.language === 'pt' 
+                  ? `VOCÊ TEM ${daysLeft} DIAS RESTANTES`
+                  : `YOU HAVE ${daysLeft} DAYS REMAINING`}
+              </p>
+              <p className="text-slate-400 text-[10px] font-medium uppercase tracking-widest">
+                {userData.language === 'pt' ? 'Gratuidade ativa no período de teste' : 'Free trial period active'}
+              </p>
+            </div>
+            
+            <div className="w-full space-y-3 pt-2">
+              <button 
+                onClick={handleUpgrade}
+                className="w-full bg-blue-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-white hover:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                <CreditCard className="w-4 h-4" />
+                {userData.language === 'pt' ? 'ASSINAR ZEUS AGORA' : 'UPGRADE TO ZEUS NOW'}
+              </button>
+              <button 
+                onClick={close} 
+                className="w-full py-3 text-slate-500 hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+              >
+                {userData.language === 'pt' ? 'CONTINUAR TESTANDO' : 'CONTINUE TESTING'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </AnimatePresence>
   );

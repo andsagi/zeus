@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   TrendingUp, 
@@ -9,18 +9,18 @@ import {
   Plus,
   Search,
   MapPin,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 import { 
   AreaChart, 
   Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
 import { useUser } from '../lib/UserContext';
+import { db, auth } from '../lib/firebase';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 const data = [
   { name: 'Jan', value: 400 },
@@ -31,23 +31,67 @@ const data = [
   { name: 'Jun', value: 900 },
 ];
 
-export const Dashboard = () => {
+interface Note {
+  id: string;
+  title?: string;
+  content?: string;
+  priority?: boolean;
+  updatedAt?: any;
+}
+
+export const Dashboard = ({ onNavigate }: { onNavigate: (view: string) => void }) => {
   const { userData } = useUser();
+  const [notes, setNotes] = useState<Note[]>([]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    
+    const q = query(
+      collection(db, `users/${auth.currentUser.uid}/notes`),
+      orderBy('updatedAt', 'desc'),
+      limit(10)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const fetchedNotes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Note[];
+
+      // Prioritize notes with birthdays or "important" flags
+      const sorted = [...fetchedNotes].sort((a, b) => {
+        const aPriority = a.priority || a.content?.toLowerCase().includes('aniversario') || a.title?.toLowerCase().includes('aniversario');
+        const bPriority = b.priority || b.content?.toLowerCase().includes('aniversario') || b.title?.toLowerCase().includes('aniversario');
+        
+        if (aPriority && !bPriority) return -1;
+        if (!aPriority && bPriority) return 1;
+        return 0;
+      });
+
+      setNotes(sorted);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `users/${auth.currentUser?.uid}/notes`);
+    });
+
+    return () => unsub();
+  }, []);
 
   const stats = [
-    { label: userData?.language === 'pt' ? 'Atividade' : 'Activity', value: '84%', icon: Zap, color: 'text-yellow-400' },
-    { label: userData?.language === 'pt' ? 'Documentos' : 'Documents', value: '12', icon: FileText, color: 'text-brand-orange' },
-    { label: userData?.language === 'pt' ? 'Contas' : 'Bills', value: 'R$ 1.250', icon: TrendingUp, color: 'text-green-400' },
-    { label: userData?.language === 'pt' ? 'Equipe' : 'Team', value: '5', icon: Users, color: 'text-blue-400' },
+    { label: userData?.language === 'pt' ? 'Atividade' : 'Activity', value: '84%', icon: Zap, color: 'text-blue-400' },
+    { label: userData?.language === 'pt' ? 'Documentos' : 'Documents', value: notes.length.toString(), icon: FileText, color: 'text-blue-500' },
+    { label: userData?.language === 'pt' ? 'Contas' : 'Bills', value: 'R$ 1.250', icon: TrendingUp, color: 'text-emerald-400' },
+    { label: userData?.language === 'pt' ? 'Equipe' : 'Team', value: '5', icon: Users, color: 'text-indigo-400' },
   ];
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-light text-white mb-2">
-            {userData?.language === 'pt' ? `Olá, ${userData.displayName?.split(' ')[0]}.` : `Hello, ${userData.displayName?.split(' ')[0]}.`}
-          </h2>
+          <h1 className="text-3xl font-light text-white mb-2">
+            {userData?.language === 'pt' 
+              ? `Olá, ${userData?.displayName?.split(' ')[0] || 'Usuário'}.` 
+              : `Hello, ${userData?.displayName?.split(' ')[0] || 'User'}.`}
+          </h1>
           <p className="text-slate-400 text-sm italic">
             {userData?.language === 'pt' ? 'Bem-vindo ao seu assistente de produtividade.' : 'Welcome to your productivity assistant.'}
           </p>
@@ -56,7 +100,7 @@ export const Dashboard = () => {
           <input 
             type="text" 
             placeholder={userData?.language === 'pt' ? 'Pesquisar na Web ou no Zeus...' : 'Search Web or Zeus...'} 
-            className="w-full md:w-80 bg-slate-900 border border-slate-800 rounded-full px-6 py-3 text-sm text-slate-200 focus:outline-none focus:border-brand-orange transition-all placeholder:text-slate-600"
+            className="w-full md:w-80 bg-slate-900 border border-slate-800 rounded-full px-6 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-600"
           />
           <button className="absolute right-4 top-3 text-slate-500 hover:text-white transition-colors">
             <Search className="w-5 h-5" />
@@ -64,7 +108,45 @@ export const Dashboard = () => {
         </div>
       </header>
 
+
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Priority / Recent Notes */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card-bg border border-slate-800 rounded-2xl p-6"
+        >
+          <h3 className="text-sm font-black uppercase tracking-widest text-blue-400 mb-4 flex items-center gap-2">
+            {userData?.language === 'pt' ? 'Prioridade & Notas' : 'Priority & Notes'}
+          </h3>
+          
+          <ul className="space-y-4">
+            {notes.length === 0 ? (
+              <li className="text-xs text-slate-600 italic">Nenhuma nota ainda...</li>
+            ) : (
+              notes.map((note) => {
+                const isPriority = note.priority || note.content?.toLowerCase().includes('aniversario') || note.title?.toLowerCase().includes('aniversario');
+                return (
+                  <li key={note.id} className="flex gap-3 items-center group cursor-pointer" onClick={() => onNavigate('notes')}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isPriority ? 'bg-red-500 animate-pulse' : 'bg-blue-500 opacity-50 group-hover:opacity-100'} transition-opacity`}></div>
+                    <div className="flex-1 truncate">
+                      <div className={`text-sm ${isPriority ? 'text-white font-bold' : 'text-slate-200'} group-hover:text-white transition-colors flex items-center gap-2`}>
+                        {note.title}
+                        {isPriority && <AlertCircle className="w-3 h-3 text-red-500" />}
+                      </div>
+                      <div className="text-[10px] text-slate-500 italic mt-0.5 truncate">
+                        {note.content?.substring(0, 40)}...
+                      </div>
+                    </div>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </motion.div>
+
         {/* Financial Card */}
         <motion.div
            initial={{ opacity: 0, y: 10 }}
@@ -73,7 +155,10 @@ export const Dashboard = () => {
         >
            <div className="flex justify-between items-center mb-6 relative z-10">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 font-display">Controle Financeiro</h3>
-              <button className="text-brand-orange text-[10px] font-bold hover:underline">
+              <button 
+                onClick={() => onNavigate('tables')}
+                className="text-blue-500 text-[10px] font-bold hover:underline"
+              >
                 {userData?.language === 'pt' ? '+ ADICIONAR TABELA' : '+ ADD TABLE'}
               </button>
            </div>
@@ -81,13 +166,7 @@ export const Dashboard = () => {
            <div className="h-40 relative z-10">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data}>
-                  <defs>
-                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F27D26" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#F27D26" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="value" stroke="#F27D26" fill="url(#colorVal)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="#3b82f620" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
            </div>
@@ -95,33 +174,6 @@ export const Dashboard = () => {
            <div className="mt-4 flex justify-between text-[10px] text-slate-600 font-bold uppercase tracking-widest">
               <span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SAB</span><span>DOM</span>
            </div>
-        </motion.div>
-
-        {/* Recent Notes */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-card-bg border border-slate-800 rounded-2xl p-6"
-        >
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-6 font-display">
-            {userData?.language === 'pt' ? 'Notas Recentes' : 'Recent Notes'}
-          </h3>
-          <ul className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <li key={i} className="flex gap-3 items-center group cursor-pointer">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-orange opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="flex-1 truncate">
-                  <div className="text-sm text-slate-200 group-hover:text-white transition-colors">
-                    {i === 1 ? 'Projeto Estrutura A1' : i === 2 ? 'Lista de Fornecedores' : 'Reunião com Equipe'}
-                  </div>
-                  <div className="text-[10px] text-slate-500 italic mt-0.5">
-                    {i === 1 ? 'Há 12 min' : i === 2 ? 'Há 3 horas' : 'Ontem'}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
         </motion.div>
 
         {/* Places Card */}
@@ -161,7 +213,10 @@ export const Dashboard = () => {
                    ? `O Zeus sugere criar uma Tabela de Controle para seus projetos de ${userData.specialization}.`
                    : `Zeus suggests creating a Control Table for your ${userData.specialization} projects.`}
                </p>
-               <button className="mt-2 text-[10px] font-bold text-brand-orange hover:underline uppercase">
+               <button 
+                 onClick={() => onNavigate('tables')}
+                 className="mt-2 text-[10px] font-bold text-brand-orange hover:underline uppercase"
+               >
                  {userData?.language === 'pt' ? 'Criar agora' : 'Create now'}
                </button>
              </div>
@@ -180,28 +235,34 @@ export const Dashboard = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="col-span-1 lg:col-span-2 bg-gradient-to-br from-slate-900 to-brand-blue border border-brand-orange/20 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6"
+          className="col-span-1 lg:col-span-2 bg-gradient-to-br from-slate-900 to-brand-blue border border-blue-500/20 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6"
         >
            <div>
-             <h3 className="text-xl font-bold text-white">
-               {userData?.language === 'pt' ? 'Assine o Zeus Ilimitado' : 'Subscribe to Zeus Unlimited'}
+             <h3 className="text-xl font-bold text-white italic">
+               {userData?.language === 'pt' ? 'Assine o Zeus Elite' : 'Subscribe to Zeus Elite'}
              </h3>
              <p className="text-slate-400 text-sm mt-1">
                {userData?.language === 'pt' ? 'Garanta sua produtividade com IA em tempo integral.' : 'Boost your productivity with full-time AI assistance.'}
              </p>
              <div className="flex gap-4 mt-6">
-               <button className="px-6 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-brand-orange hover:text-white transition-all shadow-lg active:scale-95 uppercase tracking-widest">
-                 {userData?.language === 'pt' ? 'MENSAL' : 'MONTHLY'}
+               <button 
+                 onClick={() => onNavigate('settings')}
+                 className="px-6 py-2.5 bg-blue-600 text-white text-xs font-black rounded-lg hover:bg-blue-500 transition-all shadow-lg active:scale-95 uppercase tracking-widest"
+               >
+                 {userData?.language === 'pt' ? 'MENSAL R$ 39,90' : 'MONTHLY R$ 39.90'}
                </button>
-               <button className="px-6 py-2.5 border border-slate-700 text-white text-xs font-bold rounded-lg hover:border-white transition-all uppercase tracking-widest">
-                 {userData?.language === 'pt' ? 'ANUAL (-20%)' : 'ANNUAL (-20%)'}
+               <button 
+                 onClick={() => onNavigate('settings')}
+                 className="px-6 py-2.5 border border-slate-700 text-white text-xs font-black rounded-lg hover:border-blue-500 transition-all uppercase tracking-widest"
+               >
+                 {userData?.language === 'pt' ? 'ANUAL R$ 300,00' : 'ANNUAL R$ 300.00'}
                </button>
              </div>
            </div>
            <div className="text-center md:text-right">
-             <div className="text-3xl font-light text-brand-orange">R$ 49,90</div>
-             <div className="text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">
-               {userData?.language === 'pt' ? 'Custo mensal' : 'Monthly cost'}
+             <div className="text-3xl font-light text-blue-400 font-mono">R$ 39,90</div>
+             <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 mt-1 font-black">
+               {userData?.language === 'pt' ? 'Assinatura Inicial' : 'Initial Subscription'}
              </div>
            </div>
         </motion.div>

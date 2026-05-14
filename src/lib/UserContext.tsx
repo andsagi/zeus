@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, serverTimestamp, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
 interface UserData {
@@ -11,8 +11,8 @@ interface UserData {
   language: 'pt' | 'en';
   theme: 'dark' | 'light';
   specialization: string;
-  trialStartDate: string;
-  subscriptionStatus: 'trial' | 'active' | 'expired';
+  trialStartDate: any; // Using any for Timestamp/FieldValue
+  subscriptionStatus: 'trial' | 'active' | 'expired' | 'premium';
 }
 
 interface UserContextType {
@@ -42,34 +42,35 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const docSnap = await getDoc(userRef);
 
         if (!docSnap.exists()) {
-          const newData: UserData = {
+          const newData = {
             uid: u.uid,
             email: u.email,
-            displayName: u.displayName,
+            displayName: u.displayName || 'User',
             photoURL: u.photoURL,
             language: 'pt',
             theme: 'dark',
             specialization: 'Assistente Pessoal',
-            trialStartDate: new Date().toISOString(),
+            trialStartDate: serverTimestamp(),
             subscriptionStatus: 'trial',
           };
           await setDoc(userRef, newData);
-          setUserData(newData);
-        } else {
-          setUserData(docSnap.data() as UserData);
         }
 
         // Listen for real-time updates
         const unsubDoc = onSnapshot(userRef, (doc) => {
           if (doc.exists()) {
             setUserData(doc.data() as UserData);
+            setLoading(false);
           }
+        }, (error) => {
+          console.error("User data fetch error:", error);
+          setLoading(false);
         });
         return () => unsubDoc();
       } else {
         setUserData(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -9,7 +9,7 @@ service cloud.firestore {
 
     // --- Helpers ---
     function isSignedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null && request.auth.token.get('email_verified', true) == true;
     }
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
@@ -32,20 +32,29 @@ service cloud.firestore {
         && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
         && (!('specialization' in data) || (data.specialization is string && data.specialization.size() <= 200))
         && (!('theme' in data) || data.theme in ['light', 'dark'])
-        && (!('language' in data) || data.language in ['pt', 'en']);
+        && (!('language' in data) || data.language in ['pt', 'en'])
+        && (!('subscriptionStatus' in data) || data.subscriptionStatus in ['trial', 'active', 'expired', 'premium']);
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming())
-        && incoming().trialStartDate == request.time
+        && (incoming().trialStartDate == request.time || incoming().trialStartDate is string)
         && incoming().subscriptionStatus == 'trial';
       allow update: if isOwner(userId) && isValidUser(incoming())
-        && incoming().trialStartDate == existing().trialStartDate
+        && (incoming().trialStartDate == existing().trialStartDate || incoming().trialStartDate == request.time)
         && (
           // Action: Update Preferences
-          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'specialization', 'theme', 'language', 'photoURL', 'addresses'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'specialization', 'theme', 'language', 'photoURL', 'addresses', 'subscriptionStatus'])
         );
+    }
+
+    // --- Note Validation ---
+    function isValidNote(data) {
+      return data.keys().hasAll(['title', 'content'])
+        && data.title is string && data.title.size() <= 500
+        && data.content is string && data.content.size() <= 50000
+        && (!('priority' in data) || data.priority is bool);
     }
 
     // --- Page Validation ---
@@ -59,7 +68,7 @@ service cloud.firestore {
     }
 
     match /pages/{pageId} {
-      allow get: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow get: if isSignedIn() && existing().ownerId == request.auth.uid && isValidId(pageId);
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       allow create: if isSignedIn() && isValidPage(incoming()) && isValidId(pageId)
         && incoming().createdAt == request.time;
@@ -73,12 +82,28 @@ service cloud.firestore {
       allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
     }
 
-    // --- AI Conversations & Memory ---
-    match /users/{userId}/conversations/{convId} {
-      allow read, write: if isOwner(userId) && isValidId(convId);
+    // --- AI Message Validation ---
+    function isValidAIMessage(data) {
+      return data.keys().hasAll(['role', 'text', 'timestamp'])
+        && data.role in ['user', 'model']
+        && data.text is string && data.text.size() <= 10000
+        && (data.timestamp == request.time || data.timestamp is timestamp)
+        && (!('sources' in data) || data.sources is list);
     }
+
+    // --- AI Conversations & Memory ---
     match /users/{userId}/messages/{msgId} {
-      allow read, write: if isOwner(userId) && isValidId(msgId);
+      allow get: if isOwner(userId) && isValidId(msgId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(msgId) && isValidAIMessage(incoming());
+      allow delete: if isOwner(userId) && isValidId(msgId);
+    }
+    match /users/{userId}/notes/{noteId} {
+      allow get: if isOwner(userId) && isValidId(noteId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(noteId) && isValidNote(incoming());
+      allow update: if isOwner(userId) && isValidId(noteId) && isValidNote(incoming());
+      allow delete: if isOwner(userId) && isValidId(noteId);
     }
   }
 }

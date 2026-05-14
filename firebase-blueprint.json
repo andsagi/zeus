@@ -13,7 +13,7 @@
         "theme": { "type": "string", "enum": ["light", "dark"] },
         "specialization": { "type": "string", "description": "User's professional field (e.g., Civil Engineer)" },
         "trialStartDate": { "type": "string", "format": "date-time" },
-        "subscriptionStatus": { "type": "string", "enum": ["trial", "active", "expired"] },
+        "subscriptionStatus": { "type": "string", "enum": ["trial", "active", "expired", "premium"] },
         "addresses": {
           "type": "array",
           "items": {
@@ -46,24 +46,38 @@
       },
       "required": ["id", "title", "ownerId"]
     },
-    "AIConversation": {
-      "title": "AI Interaction",
-      "description": "History of AI assistant messages",
+    "Note": {
+      "title": "User Note",
+      "description": "A piece of text saved by the user",
       "type": "object",
       "properties": {
-        "userId": { "type": "string" },
-        "messages": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "priority": { "type": "boolean" }
+      },
+      "required": ["title", "content"]
+    },
+    "AIMessage": {
+      "title": "AI Message",
+      "description": "An individual message in the AI chat history",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "sources": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "role": { "type": "string", "enum": ["user", "model"] },
-              "text": { "type": "string" },
-              "timestamp": { "type": "string", "format": "date-time" }
+              "uri": { "type": "string" },
+              "title": { "type": "string" }
             }
           }
         }
-      }
+      },
+      "required": ["role", "text", "timestamp"]
     }
   },
   "firestore": {
@@ -75,9 +89,13 @@
       "schema": "Page",
       "description": "Workspace documents"
     },
-    "users/{userId}/conversations/{convId}": {
-      "schema": "AIConversation",
-      "description": "AI memory per user"
+    "users/{userId}/notes/{noteId}": {
+      "schema": "Note",
+      "description": "User saved notes"
+    },
+    "users/{userId}/messages/{msgId}": {
+      "schema": "AIMessage",
+      "description": "Individual messages for history"
     }
   }
 }

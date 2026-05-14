@@ -1,6 +1,6 @@
 {
-  "name": "Zeus App",
-  "description": "Unified productivity assistant combining the knowledge base of Obsidian with the structure of Notion, powered by specialized Gemini AI.",
+  "name": "Zeus App - IA Profissional",
+  "description": "Assistente de produtividade IA para profissionais. Organize notas, finanças e geolocalização com inteligência especializada.",
   "requestFramePermissions": [
     "geolocation",
     "microphone"
