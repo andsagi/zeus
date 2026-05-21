@@ -1,0 +1,83 @@
+======================================================================
+         ZEUS APP - GUIA DE LANÇAMENTO & INSTALAÇÃO (ANDROID / IOS / WEB)
+======================================================================
+
+Olá! Este arquivo contém o plano de ação completo para você publicar e manter
+o backup seguro de todo o código-fonte do Zeus App ainda hoje nas plataformas.
+
+----------------------------------------------------------------------
+1. COMO BAIXAR O BACKUP DO CÓDIGO FONTE COMPLETO (.ZIP)
+----------------------------------------------------------------------
+Como o seu aplicativo é desenvolvido em um ambiente seguro na nuvem da
+Google AI Studio, você pode extrair 100% de todo o código atualizado sem
+perder absolutamente nenhum arquivo:
+
+1. No canto superior direito desta tela de chat do AI Studio, clique no ícone
+   de "Exportar" ou "Menu" (Engrenagem / Configurações).
+2. Selecione a opção "Export to ZIP" (Exportar como ZIP).
+3. O download começará automaticamente contendo todos os arquivos do projeto:
+   - package.json (Configurações de dependências)
+   - vite.config.ts (Motor de build integrado)
+   - /src (Todas as telas, IA e inteligência artificial)
+   - /public (Ícones, PWA e Service Worker)
+   - server.ts (Backend robusto do Zeus)
+
+----------------------------------------------------------------------
+2. LANÇAMENTO IMEDIATO COMO PWA (ANDROID, IOS E WEB) - RECOMENDADO!
+----------------------------------------------------------------------
+Para disponibilizar o aplicativo para seus usuários HOJE sem burocracias
+de aprovação das lojas da Apple ou Google:
+
+O Zeus App foi atualizado por nós com capacidades de "Progressive Web App" (PWA):
+1. Hospede sua aplicação web (usando Firebase App Hosting, Vercel, Netlify ou Cloud Run).
+2. Quando seus usuários acessarem o link pelo celular (Android ou iOS):
+   - No iOS (Safari): clicar em "Compartilhar" -> "Adicionar à Tela de Início".
+   - No Android (Chrome): clicar nos três pontinhos -> "Instalar Aplicativo".
+3. O aplicativo será instalado instantaneamente no celular do usuário:
+   - Ele terá um ícone exclusivo na tela do celular.
+   - Irá abrir em tela cheia (sem barra de navegação do browser).
+   - Terá animação nativa de abertura e cache ultrarrápido.
+
+----------------------------------------------------------------------
+3. COMPILANDO PARA APP NATIVO (GOOGLE PLAY STORE & APPLE APP STORE)
+----------------------------------------------------------------------
+Se você deseja publicar pacotes nativos (.apk/.aab para Android, e .ipa para iOS)
+nas lojas oficiais, nós estruturamos o código para ser 100% compatível com o
+Capacitor (o framework oficial mais leve para web apps nativos).
+
+Instruções para compilar pós-download do ZIP:
+
+1. Extraia o ZIP baixado no seu computador.
+2. Abra o terminal na pasta do projeto e instale as dependências:
+   $ npm install
+
+3. Adicione o Capacitor ao projeto:
+   $ npm install @capacitor/core @capacitor/cli
+   $ npx cap init "Zeus" "com.zeustech.app" --web-dir=dist
+
+4. Construa a versão otimizada da aplicação web:
+   $ npm run build
+
+5. Instale as plataformas nativas:
+   - Para Android (requer Android Studio instalado):
+     $ npm install @capacitor/android
+     $ npx cap add android
+   - Para iOS (requer MacOS com Xcode instalado):
+     $ npm install @capacitor/ios
+     $ npx cap add ios
+
+6. Sincronize o código compilado com as plataformas nativas:
+   $ npx cap sync
+
+7. Abra o ambiente de desenvolvimento e publique nas lojas:
+   - Para Android:
+     $ npx cap open android (gerar .AAB assinado e subir na Google Play Console)
+   - Para iOS:
+     $ npx cap open ios (arquivar no Xcode e enviar para App Store Connect)
+
+----------------------------------------------------------------------
+Pronto! Seu aplicativo está robusto, seguro, profissional e preparado para
+atender milhares de usuários tanto na Web quanto diretamente no celular.
+
+Zeus Tech - IA do seu Negócio liderando a Produtividade.
+======================================================================

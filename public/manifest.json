@@ -1,0 +1,25 @@
+{
+  "name": "Zeus - IA Profissional & Produtividade",
+  "short_name": "Zeus",
+  "description": "Domine sua rotina com o Zeus. Assistente de IA avançado para gestão de notas, finanças e produtividade.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05070A",
+  "theme_color": "#05070A",
+  "orientation": "portrait",
+  "categories": ["utilities", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1614728263952-84ea256f9679?q=80&w=192&h=192&fit=crop",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1614728263952-84ea256f9679?q=80&w=512&h=512&fit=crop",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

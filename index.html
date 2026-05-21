@@ -20,13 +20,33 @@
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:title" content="Zeus App - IA Profissional" />
-    <meta property="twitter:description" content="Assistente de IA para profissionais de alta performance." />
+    <meta property="twitter:description" content="Assistente de IA para professionals de alta performance." />
     
+    <!-- PWA & Mobile Web App Capabilities -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Zeus" />
+    <link rel="apple-touch-icon" href="https://images.unsplash.com/photo-1614728263952-84ea256f9679?q=80&w=192&h=192&fit=crop" />
+
     <link rel="icon" type="image/svg+xml" href="https://lucide.dev/favicon.ico" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Register Simple PWA Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('Zeus ServiceWorker registered successfully:', reg.scope);
+          }).catch(err => {
+            console.warn('Zeus ServiceWorker registration failed:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
 
