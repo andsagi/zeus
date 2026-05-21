@@ -36,7 +36,7 @@ export const SettingsView = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          priceId: 'price_1TWv5C00Wff06ScphJUNTyGW', 
+          priceId: 'price_1TWwBo1mXWCEUjedOPPsuRpC', 
         }),
       });
 

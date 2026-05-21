@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Save, Eye, Edit3, Trash2, Star, Share2, CheckCircle, ChevronLeft, Mic } from 'lucide-react';
 import { useUser } from '../lib/UserContext';
-import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 export const Editor = ({ onNavigate }: { onNavigate?: (view: string) => void }) => {
@@ -32,19 +30,23 @@ export const Editor = ({ onNavigate }: { onNavigate?: (view: string) => void }) 
   };
 
   const handleSave = async () => {
-    if (!auth.currentUser) return;
+    if (!userData?.uid || !supabase) return;
     setSaving(true);
-    const path = `users/${auth.currentUser.uid}/notes`;
     try {
-      await addDoc(collection(db, path), {
-        title,
-        content,
-        updatedAt: serverTimestamp(),
-        priority: content.toLowerCase().includes('aniversario') || content.toLowerCase().includes('importante')
-      });
+      const { error } = await supabase
+        .from('notes')
+        .insert({
+          user_id: userData.uid,
+          title,
+          content,
+          priority: content.toLowerCase().includes('aniversario') || content.toLowerCase().includes('importante')
+        });
+      
+      if (error) throw error;
       alert(userData?.language === 'pt' ? 'Nota salva!' : 'Note saved!');
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      console.error('Error saving to Supabase:', err);
+      alert('Erro ao salvar nota.');
     } finally {
       setSaving(false);
     }

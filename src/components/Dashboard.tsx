@@ -18,8 +18,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { useUser } from '../lib/UserContext';
-import { db, auth } from '../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 const data = [
@@ -44,37 +43,39 @@ export const Dashboard = ({ onNavigate }: { onNavigate: (view: string) => void }
   const [notes, setNotes] = useState<Note[]>([]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!userData?.uid) return;
     
-    const q = query(
-      collection(db, `users/${auth.currentUser.uid}/notes`),
-      orderBy('updatedAt', 'desc'),
-      limit(10)
-    );
+    const fetchNotes = async () => {
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', userData.uid)
+        .order('updated_at', { ascending: false })
+        .limit(10);
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const fetchedNotes = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Note[];
+      if (error) {
+        console.error('Error fetching notes from Supabase:', error);
+        return;
+      }
+      
+      if (data) {
+        const fetchedNotes = data as Note[];
+        // Prioritize notes with birthdays or "important" flags
+        const sorted = [...fetchedNotes].sort((a, b) => {
+          const aPriority = a.priority || a.content?.toLowerCase().includes('aniversario') || a.title?.toLowerCase().includes('aniversario');
+          const bPriority = b.priority || b.content?.toLowerCase().includes('aniversario') || b.title?.toLowerCase().includes('aniversario');
+          
+          if (aPriority && !bPriority) return -1;
+          if (!aPriority && bPriority) return 1;
+          return 0;
+        });
+        setNotes(sorted);
+      }
+    };
 
-      // Prioritize notes with birthdays or "important" flags
-      const sorted = [...fetchedNotes].sort((a, b) => {
-        const aPriority = a.priority || a.content?.toLowerCase().includes('aniversario') || a.title?.toLowerCase().includes('aniversario');
-        const bPriority = b.priority || b.content?.toLowerCase().includes('aniversario') || b.title?.toLowerCase().includes('aniversario');
-        
-        if (aPriority && !bPriority) return -1;
-        if (!aPriority && bPriority) return 1;
-        return 0;
-      });
-
-      setNotes(sorted);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `users/${auth.currentUser?.uid}/notes`);
-    });
-
-    return () => unsub();
-  }, []);
+    fetchNotes();
+  }, [userData?.uid]);
 
   const stats = [
     { label: userData?.language === 'pt' ? 'Atividade' : 'Activity', value: '84%', icon: Zap, color: 'text-blue-400' },

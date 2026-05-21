@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, serverTimestamp, FieldValue } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth } from './firebase';
+import { supabase } from './supabase';
 
 interface UserData {
   uid: string;
@@ -11,7 +11,7 @@ interface UserData {
   language: 'pt' | 'en';
   theme: 'dark' | 'light';
   specialization: string;
-  trialStartDate: any; // Using any for Timestamp/FieldValue
+  trialStartDate?: any; // Using any for Timestamp/FieldValue
   subscriptionStatus: 'trial' | 'active' | 'expired' | 'premium';
 }
 
@@ -37,36 +37,44 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u) {
-        const userRef = doc(db, 'users', u.uid);
-        const docSnap = await getDoc(userRef);
+      if (u && supabase) {
+        // Fetch from Supabase
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', u.uid)
+          .maybeSingle();
 
-        if (!docSnap.exists()) {
+        if (error) {
+          console.error("User data fetch error from Supabase:", error);
+          setLoading(false);
+          return;
+        }
+
+        if (!data) {
+          // Create new user profile since it doc doesn't exist
           const newData = {
-            uid: u.uid,
+            id: u.uid,
             email: u.email,
             displayName: u.displayName || 'User',
             photoURL: u.photoURL,
             language: 'pt',
             theme: 'dark',
             specialization: 'Assistente Pessoal',
-            trialStartDate: serverTimestamp(),
             subscriptionStatus: 'trial',
           };
-          await setDoc(userRef, newData);
-        }
-
-        // Listen for real-time updates
-        const unsubDoc = onSnapshot(userRef, (doc) => {
-          if (doc.exists()) {
-            setUserData(doc.data() as UserData);
-            setLoading(false);
+          const { error: insertErr } = await supabase.from('users').insert(newData);
+          if (insertErr) {
+             console.error('Failed to create user:', insertErr);
+          } else {
+             // Map id to uid for our frontend
+             setUserData({ ...newData, uid: newData.id } as UserData);
           }
-        }, (error) => {
-          console.error("User data fetch error:", error);
-          setLoading(false);
-        });
-        return () => unsubDoc();
+        } else {
+          // User exists mapping
+          setUserData({ ...data, uid: data.id } as UserData);
+        }
+        setLoading(false);
       } else {
         setUserData(null);
         setLoading(false);
@@ -77,9 +85,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const updateUserData = async (data: Partial<UserData>) => {
-    if (!user) return;
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, data, { merge: true });
+    if (!user || !supabase) return;
+    const { error } = await supabase.from('users').update(data).eq('id', user.uid);
+    if (!error) {
+      setUserData(prev => prev ? { ...prev, ...data } : null);
+    } else {
+      console.error('Error updating user on Supabase:', error);
+    }
   };
 
   return (

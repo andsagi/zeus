@@ -19,38 +19,38 @@ function getStripe() {
   return stripeClient;
 }
 
+export const app = express();
+const PORT = 3000;
+
+app.use(express.json());
+
+// API Route for Stripe Checkout
+app.post("/api/create-checkout-session", async (req, res) => {
+  try {
+    const stripe = getStripe();
+    const { priceId } = req.body;
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId, 
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: `${req.headers.origin}/settings?success=true`,
+      cancel_url: `${req.headers.origin}/settings?canceled=true`,
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error('Stripe error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
-
-  app.use(express.json());
-
-  // API Route for Stripe Checkout
-  app.post("/api/create-checkout-session", async (req, res) => {
-    try {
-      const stripe = getStripe();
-      const { priceId } = req.body;
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: priceId, 
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: `${req.headers.origin}/settings?success=true`,
-        cancel_url: `${req.headers.origin}/settings?canceled=true`,
-      });
-
-      res.json({ url: session.url });
-    } catch (error: any) {
-      console.error('Stripe error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -71,4 +71,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}

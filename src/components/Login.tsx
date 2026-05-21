@@ -1,9 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, Shield, Cpu, Zap } from 'lucide-react';
+import { LogIn, Shield, Cpu, Zap, Fingerprint } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 
 export const Login = () => {
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+
+  useEffect(() => {
+    // Check if device supports platform authenticator (Biometrics/FaceID)
+    const checkBiometrics = async () => {
+      if (window.PublicKeyCredential && 
+          typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+        const available = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        setIsBiometricAvailable(available);
+      }
+    };
+    checkBiometrics();
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    try {
+      // In a full production app, this would query your backend for a challenge.
+      // Here we trigger the native biometric prompt using a dummy passkey challenge to demonstrate the flow.
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+      
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: challenge,
+          rpId: window.location.hostname,
+          userVerification: "required",
+        }
+      });
+      // If success, we would exchange the response for an auth token.
+      alert('Biometria reconhecida! Para o primeiro acesso neste dispositivo, por favor, vincule sua conta Google.');
+      signInWithGoogle();
+    } catch (error) {
+      console.log('Biometric auth cancelled or failed', error);
+      // Fallback
+      signInWithGoogle();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#05070A] flex flex-col items-center justify-center p-6 bg-[grid-white-5] relative overflow-hidden">
       {/* Decorative Blur */}
@@ -36,7 +74,7 @@ export const Login = () => {
           Seu assistente de produtividade definitivo, alimentado por inteligência artificial.
         </p>
 
-        <div className="space-y-4 mb-12">
+        <div className="space-y-4 mb-10">
           <div className="flex items-center gap-4 text-left p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 transition-colors">
             <Cpu className="w-6 h-6 text-blue-400" />
             <div>
@@ -53,13 +91,25 @@ export const Login = () => {
           </div>
         </div>
 
-        <button
-          onClick={signInWithGoogle}
-          className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-xl active:scale-95 shadow-blue-500/20"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-          ENTRAR COM CONTA GOOGLE
-        </button>
+        <div className="space-y-4">
+          <button
+            onClick={signInWithGoogle}
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-xl active:scale-95 shadow-blue-500/20"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+            ENTRAR COM CONTA GOOGLE
+          </button>
+
+          {isBiometricAvailable && (
+            <button
+              onClick={handleBiometricLogin}
+              className="w-full bg-slate-900 border border-slate-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95"
+            >
+              <Fingerprint className="w-6 h-6 text-blue-400" />
+              ACESSAR COM BIOMETRIA / FACE ID
+            </button>
+          )}
+        </div>
 
         <p className="mt-8 text-xs text-gray-600 uppercase tracking-widest font-black">
           PRIMEIROS 60 DIAS TOTALMENTE GRATUITOS

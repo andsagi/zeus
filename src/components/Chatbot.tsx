@@ -4,8 +4,7 @@ import { MessageSquare, Send, X, Bot, Mic, Globe, Zap } from 'lucide-react';
 import { useUser } from '../lib/UserContext';
 import { getAIResponse } from '../lib/gemini';
 import ReactMarkdown from 'react-markdown';
-import { collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-utils';
 
 export const Chatbot = () => {
@@ -20,28 +19,32 @@ export const Chatbot = () => {
 
   // Load History
   useEffect(() => {
-    if (!user) return;
-    const path = `users/${user.uid}/messages`;
-    const q = query(
-      collection(db, path),
-      orderBy('timestamp', 'desc'),
-      limit(20)
-    );
+    if (!user || !supabase) return;
+    
+    const fetchHistory = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('user_id', user.uid)
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const history = snapshot.docs
-        .map(doc => ({
-          role: doc.data().role as 'user' | 'model',
-          text: doc.data().text as string,
-          sources: doc.data().sources as { uri: string, title: string }[] | undefined
-        }))
-        .reverse(); // Reverse to display in chronological order (oldest to newest)
-      setMessages(history);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
-    });
-
-    return () => unsubscribe();
+      if (error) {
+        console.error('Error fetching messages from supabase:', error);
+        return;
+      }
+      if (data) {
+        const history = data
+          .map(doc => ({
+            role: doc.role as 'user' | 'model',
+            text: doc.text as string,
+            sources: doc.sources as { uri: string, title: string }[] | undefined,
+          }))
+          .reverse();
+        setMessages(history);
+      }
+    };
+    fetchHistory();
   }, [user]);
 
   useEffect(() => {
@@ -51,32 +54,36 @@ export const Chatbot = () => {
   }, [messages, isTyping]);
 
   const handleSend = async () => {
-    if (!input.trim() || !userData || !user) return;
+    if (!input.trim() || !userData || !user || !supabase) return;
 
     const userMessage = input;
     setInput('');
     setIsTyping(true);
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]); // Optmistic UI since we removed onSnapshot
 
     try {
       // Save User Message
-      await addDoc(collection(db, `users/${user.uid}/messages`), {
+      await supabase.from('messages').insert({
+        user_id: user.uid,
         role: 'user',
-        text: userMessage,
-        timestamp: serverTimestamp()
+        text: userMessage
       });
 
       // Get AI Response
       const response = await getAIResponse(userMessage, messages.map(m => ({ role: m.role, text: m.text })), userData.specialization, userData.language, useWebSearch);
       
       // Save AI Response
-      await addDoc(collection(db, `users/${user.uid}/messages`), {
+      await supabase.from('messages').insert({
+        user_id: user.uid,
         role: 'model',
         text: response.text,
-        sources: response.sources || [],
-        timestamp: serverTimestamp()
+        sources: response.sources || []
       });
+
+      setMessages(prev => [...prev, { role: 'model', text: response.text, sources: response.sources }]); // Optimistic UI
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/messages`);
+      console.error('Error saving message to Supabase', error);
+      alert('Houve um erro ao se comunicar com o sistema. Tente novamente.');
     } finally {
       setIsTyping(false);
     }
