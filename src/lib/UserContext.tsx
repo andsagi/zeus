@@ -37,44 +37,62 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u && supabase) {
-        // Fetch from Supabase
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', u.uid)
-          .maybeSingle();
+      if (u) {
+        const defaultUserData: UserData = {
+          uid: u.uid,
+          email: u.email,
+          displayName: u.displayName || 'User',
+          photoURL: u.photoURL,
+          language: 'pt',
+          theme: 'dark',
+          specialization: 'Assistente Pessoal',
+          subscriptionStatus: 'trial',
+        };
 
-        if (error) {
-          console.error("User data fetch error from Supabase:", error);
-          setLoading(false);
-          return;
-        }
+        if (supabase) {
+          // Fetch from Supabase
+          const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', u.uid)
+            .maybeSingle();
 
-        if (!data) {
-          // Create new user profile since it doc doesn't exist
-          const newData = {
-            id: u.uid,
-            email: u.email,
-            displayName: u.displayName || 'User',
-            photoURL: u.photoURL,
-            language: 'pt',
-            theme: 'dark',
-            specialization: 'Assistente Pessoal',
-            subscriptionStatus: 'trial',
-          };
-          const { error: insertErr } = await supabase.from('users').insert(newData);
-          if (insertErr) {
-             console.error('Failed to create user:', insertErr);
-          } else {
-             // Map id to uid for our frontend
-             setUserData({ ...newData, uid: newData.id } as UserData);
+          if (error) {
+            console.error("User data fetch error from Supabase:", error);
+            setUserData(defaultUserData);
+            setLoading(false);
+            return;
           }
+
+          if (!data) {
+            // Create new user profile since it doc doesn't exist
+            const newData = {
+              id: u.uid,
+              email: u.email,
+              displayName: u.displayName || 'User',
+              photoURL: u.photoURL,
+              language: 'pt',
+              theme: 'dark',
+              specialization: 'Assistente Pessoal',
+              subscriptionStatus: 'trial',
+            };
+            const { error: insertErr } = await supabase.from('users').insert(newData);
+            if (insertErr) {
+               console.error('Failed to create user:', insertErr);
+               setUserData(defaultUserData);
+            } else {
+               // Map id to uid for our frontend
+               setUserData({ ...newData, uid: newData.id } as UserData);
+            }
+          } else {
+            // User exists mapping
+            setUserData({ ...data, uid: data.id } as UserData);
+          }
+          setLoading(false);
         } else {
-          // User exists mapping
-          setUserData({ ...data, uid: data.id } as UserData);
+          setUserData(defaultUserData);
+          setLoading(false);
         }
-        setLoading(false);
       } else {
         setUserData(null);
         setLoading(false);
