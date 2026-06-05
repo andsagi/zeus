@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Zap } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { useUser } from './lib/UserContext';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -103,18 +104,21 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen ${userData?.theme === 'light' ? 'bg-gray-50 text-black' : 'bg-brand-black text-white'} flex overflow-hidden`}>
-      <Sidebar onNavigate={setCurrentView} currentView={currentView} />
-      
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        <TrialBanner onNavigate={setCurrentView} />
+    <>
+      <div className={`min-h-screen ${userData?.theme === 'light' ? 'bg-gray-50 text-black' : 'bg-brand-black text-white'} flex overflow-hidden`}>
+        <Sidebar onNavigate={setCurrentView} currentView={currentView} />
         
-        <div className={`flex-1 overflow-y-auto ${userData?.subscriptionStatus === 'trial' ? 'pt-12' : ''}`}>
-          {renderView()}
-        </div>
+        <main className="flex-1 flex flex-col relative overflow-hidden">
+          <TrialBanner onNavigate={setCurrentView} />
+          
+          <div className={`flex-1 overflow-y-auto ${userData?.subscriptionStatus === 'trial' ? 'pt-12' : ''}`}>
+            {renderView()}
+          </div>
 
-        <Chatbot />
-      </main>
-    </div>
+          <Chatbot />
+        </main>
+      </div>
+      <Analytics />
+    </>
   );
 }
