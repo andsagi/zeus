@@ -2,13 +2,13 @@
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY, -- We use text to support either Firebase UIDs or Supabase UUIDs
   email TEXT,
-  displayName TEXT,
-  photoURL TEXT,
+  "displayName" TEXT,
+  "photoURL" TEXT,
   language TEXT DEFAULT 'pt',
   theme TEXT DEFAULT 'dark',
   specialization TEXT,
-  trialStartDate TIMESTAMPTZ DEFAULT NOW(),
-  subscriptionStatus TEXT DEFAULT 'trial',
+  "trialStartDate" TIMESTAMPTZ DEFAULT NOW(),
+  "subscriptionStatus" TEXT DEFAULT 'trial',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
