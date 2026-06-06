@@ -74,4 +74,3 @@ CREATE POLICY "Users can manage their own notes" ON notes USING (auth.uid()::tex
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own messages" ON messages USING (auth.uid()::text = user_id);
 */
-
